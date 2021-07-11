@@ -347,6 +347,8 @@ detailed description below for a complete description.
 --backup-dir=DIR         make backups into hierarchy based in DIR
 --suffix=SUFFIX          backup suffix (default ~ w/o --backup-dir)
 --update, -u             skip files that are newer on the receiver
+--update-links           skip symlinks that are newer on the receiver
+--allow-link-update-dir  newer symlinks may replace older directories
 --inplace                update destination files in-place
 --append                 append data onto shorter files
 --append-verify          --append w/old data in file checksum
@@ -888,15 +890,54 @@ your home directory (remove the '=' for that).
     will be updated if the sizes are different.)
 
     Note that this does not affect the copying of dirs, symlinks, or other
-    special files.  Also, a difference of file format between the sender and
-    receiver is always considered to be important enough for an update, no
-    matter what date is on the objects.  In other words, if the source has a
-    directory where the destination has a file, the transfer would occur
-    regardless of the timestamps.
+    special files unless the `--update-links` option is enabled.  Also,
+    a difference of file format between the sender and receiver is always
+    considered to be important enough for an update, no matter what date is
+    on the objects.  In other words, if the source has a directory where
+    the destination has a file, the transfer would occur regardless of
+    the timestamps.
 
     This option is a transfer rule, not an exclude, so it doesn't affect the
     data that goes into the file-lists, and thus it doesn't affect deletions.
     It just limits the files that the receiver requests to be transferred.
+
+0.  `--update-links`
+
+    This option controls rsync behaviour when a symbolic link on the source
+    encounters a destination file in the way of the symlink during transfer.
+    The setting forces rsync to skip any files which exist on the destination
+    and have a modified time that is newer than the symbolic link on the
+    source.  A file in the way of the symlink can be a regular file, a symlink,
+    a named pipe, or a device that exists on the destination.  Such a file with
+    an identical or less recent modification time than the source symlink will
+    be deleted and a symlink pointing to the same item (the referent) as the
+    source symlink on the destination created in its place.  A destination
+    symlink with an identical modification time as the source symlink will
+    only be replaced if the referent is different.  By default, any directory
+    in the way of the source symlink is exempted from removal by a symlink,
+    regardless of its modification time.  To extend the behaviour of this
+    option to directories, see the `--allow-link-update-dir` option below.
+
+    This option may be specified independently of the `--update` (`-u`) option
+    mentioned above, which acts on regular source files only.
+
+0.  `--allow-link-update-dir`
+
+    Enabling this option allows rsync to replace a less recent empty directory
+    on the destination with a more recent symbolic link from the source.  This
+    option extends the `--update-links` option, which by default preserves any
+    existing directory on the destination from being replaced by a more recent
+    symbolic link.  The modification time of the symbolic link on the source
+    needs to be more recent than the modification time of the directory
+    existing on the destination for this option to take effect.  An exisitng
+    directory with a more recent modification time on the destination than the
+    symlink on the source will not be removed and replaced by the symlink.  A
+    destination directory with an identical modification time as the source
+    symbolic link will be removed and a symlink will be recreated with same
+    referent as the source symlink.  Non-empty directories are not unlinked
+    under any circumstances.
+
+    This option requires the `--update-links` option to be enabled.
 
 0.  `--inplace`
 
@@ -1017,6 +1058,9 @@ your home directory (remove the '=' for that).
 0.  `--links`, `-l`
 
     When symlinks are encountered, recreate the symlink on the destination.
+    If a file exists in the path of the source link on the destination, it
+    will be deleted and replaced by the link. To exempt more recent destination
+    files from being replaced by a link, refer to the `--update-links` option.
 
 0.  `--copy-links`, `-L`
 
@@ -3998,7 +4042,7 @@ version uses a new implementation.
 
 # SYMBOLIC LINKS
 
-Three basic behaviors are possible when rsync encounters a symbolic
+Four basic behaviors are possible when rsync encounters a symbolic
 link in the source directory.
 
 By default, symbolic links are not transferred at all.  A message "skipping
@@ -4009,6 +4053,13 @@ the destination.  Note that `--archive` implies `--links`.
 
 If `--copy-links` is specified, then symlinks are "collapsed" by
 copying their referent, rather than the symlink.
+
+If `--update-links` is specified, then symlinks are recreated with the same
+target on the destination unless the existing destination file in the way of the
+symlink is newer or is a directory. Unlike `--links`, this option protects all
+more recent files on the destination from being replaced.  It is possible to
+extend having an existing less recent directory on the destination replaced by a
+more recent symlink using `--allow-link-update-dir`.
 
 Rsync can also distinguish "safe" and "unsafe" symbolic links.  An example
 where this might be used is a web site mirror that wishes to ensure that the
@@ -4034,6 +4085,13 @@ first line that is a complete subset of your options:
     safe symlinks.
 0.  `--links --safe-links` Duplicate safe symlinks and skip unsafe ones.
 0.  `--links` Duplicate all symlinks.
+0.  `--update-links` Duplicate symlinks, replace less recent files or files
+    with an identical modification time. Skip any more recent destination
+    files. Unconditionally exclude any existing directories on the destination
+    from deletion and replacement by a symlink when one would be transferred.
+0.  `--update-links --allow-link-update-dir` Duplicate symlinks, skip any more
+    recent files existing on the destination, allow any less recent directory
+    to be replaced by more recent symlinks.
 
 # DIAGNOSTICS
 
