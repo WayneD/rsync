@@ -49,6 +49,10 @@
 - Changed the mapfrom & mapto perl scripts (in the support dir) into a single
   python script named idmap.  Converted a couple more perl scripts into python.
 
+- Recognize many more sockopt inputs, including string inputs.
+  e.g. TCP_CONGESTION=bbr, TCP_FASTOPEN, TCP_FASTOPEN_CONNECT, IP_FREEBIND,
+  SO_INCOMING_CPU, TCP_QUICKACK
+
 ### DEVELOPER RELATED:
 
  - Updated config.guess (timestamp 2023-01-01) and config.sub (timestamp
